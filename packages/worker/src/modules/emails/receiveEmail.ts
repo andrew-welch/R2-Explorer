@@ -27,7 +27,9 @@ export async function receiveEmail(
 	let bucket;
 
 	if (
-		config?.emailRouting?.targetBucket &&
+		config?.emailRouting &&
+		typeof config.emailRouting === "object" &&
+		config.emailRouting.targetBucket &&
 		env[config.emailRouting.targetBucket]
 	) {
 		bucket = env[config.emailRouting.targetBucket];
@@ -42,6 +44,12 @@ export async function receiveEmail(
 				break;
 			}
 		}
+	}
+
+	if (!bucket) {
+		throw new Error(
+			"No R2 bucket binding found for email routing. Configure emailRouting.targetBucket or add an R2 bucket binding.",
+		);
 	}
 
 	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);

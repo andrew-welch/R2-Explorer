@@ -2,6 +2,9 @@ import {defineConfig} from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  sitemap: {
+    hostname: 'https://r2explorer.com'
+  },
   title: 'R2 Explorer',
   description: 'A Google Drive Interface for your Cloudflare R2 Buckets',
   head: [['link', { rel: 'icon', href: '/assets/logo.svg' }]],
@@ -13,7 +16,10 @@ export default defineConfig({
         nav: [
       { text: 'Home', link: '/' },
       { text: 'Getting Started', link: '/getting-started/creating-a-new-project' },
-      { text: 'Email Explorer', link: '/guides/setup-email-explorer/' },
+      { text: 'Guides', items: [
+        { text: 'Email Explorer', link: '/guides/setup-email-explorer/' },
+        { text: 'Sharable Links', link: '/guides/sharable-links' },
+      ]},
       { text: 'Live Demo', link: 'https://demo.r2explorer.com/' },
     ],
     sidebar:  [
@@ -32,6 +38,8 @@ export default defineConfig({
           text: 'Guides',
           items: [
             { text: 'Setup Email Explorer', link: '/guides/setup-email-explorer' },
+            { text: 'Sharable Links', link: '/guides/sharable-links' },
+            { text: 'Troubleshooting', link: '/guides/troubleshooting' },
           ]
         }
       ],

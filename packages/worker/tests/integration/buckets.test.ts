@@ -1,10 +1,10 @@
 import { Buffer } from "node:buffer"; // For btoa with binary data if needed, and for creating ArrayBuffer
+import { createExecutionContext, env } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestApp, createTestRequest } from "./setup";
-import { env, createExecutionContext } from "cloudflare:test"
 
 // Main describe block for all bucket endpoints
-describe.skip("Bucket Endpoints", () => {
+describe("Bucket Endpoints", () => {
 	let app: ReturnType<typeof createTestApp>;
 	let MY_TEST_BUCKET_1: R2Bucket;
 
@@ -128,7 +128,11 @@ describe.skip("Bucket Endpoints", () => {
 				// Corrected formatting
 				"/api/buckets/MY_TEST_BUCKET_1?limit=2",
 			);
-			const response1 = await app.fetch(request1, env, createExecutionContext());
+			const response1 = await app.fetch(
+				request1,
+				env,
+				createExecutionContext(),
+			);
 			expect(response1.status).toBe(200);
 			const body1 = (await response1.json()) as R2Objects;
 			expect(body1.objects.length).toBe(2);
@@ -138,17 +142,22 @@ describe.skip("Bucket Endpoints", () => {
 			const request2 = createTestRequest(
 				`/api/buckets/MY_TEST_BUCKET_1?limit=2&cursor=${body1.cursor}`,
 			);
-			const response2 = await app.fetch(request2, env, createExecutionContext());
+			const response2 = await app.fetch(
+				request2,
+				env,
+				createExecutionContext(),
+			);
 			expect(response2.status).toBe(200);
 			const body2 = (await response2.json()) as R2Objects;
 			expect(body2.objects.length).toBe(1);
 			expect(body2.truncated).toBe(false);
 		});
 
-		it("GET /api/buckets/NON_EXISTENT_BUCKET - should return 500 if bucket binding does not exist", async () => {
+		it("GET /api/buckets/NON_EXISTENT_BUCKET - should return 400 if bucket binding does not exist", async () => {
 			const request = createTestRequest("/api/buckets/NON_EXISTENT_BUCKET");
 			const response = await app.fetch(request, env, createExecutionContext());
 			expect(response.status).toBe(500);
+			expect(await response.text()).toBe("Bucket binding not found: NON_EXISTENT_BUCKET");
 		});
 	});
 
@@ -257,6 +266,56 @@ describe.skip("Bucket Endpoints", () => {
 
 			const r2Object = await MY_TEST_BUCKET_1.get(objectKey);
 			expect(await r2Object?.text()).toBe(newObjectContent);
+		});
+
+		it("should return 400 for malformed customMetadata", async () => {
+			if (!MY_TEST_BUCKET_1)
+				throw new Error("MY_TEST_BUCKET_1 binding not available");
+
+			const objectKey = "bad-metadata.txt";
+			const base64ObjectKey = btoa(objectKey);
+			const blobBody = new Blob(["content"], {
+				type: "application/octet-stream",
+			});
+
+			const badCustomMetadata = btoa("not-valid-json");
+
+			const request = createTestRequest(
+				`/api/buckets/MY_TEST_BUCKET_1/upload?key=${encodeURIComponent(base64ObjectKey)}&customMetadata=${encodeURIComponent(badCustomMetadata)}`,
+				"POST",
+				blobBody,
+				{ "Content-Type": "application/octet-stream" },
+			);
+
+			const response = await app.fetch(request, env, createExecutionContext());
+			expect(response.status).toBe(400);
+			const body = await response.text();
+			expect(body).toContain("Invalid customMetadata");
+		});
+
+		it("should return 400 for malformed httpMetadata", async () => {
+			if (!MY_TEST_BUCKET_1)
+				throw new Error("MY_TEST_BUCKET_1 binding not available");
+
+			const objectKey = "bad-metadata.txt";
+			const base64ObjectKey = btoa(objectKey);
+			const blobBody = new Blob(["content"], {
+				type: "application/octet-stream",
+			});
+
+			const badHttpMetadata = btoa("{broken json");
+
+			const request = createTestRequest(
+				`/api/buckets/MY_TEST_BUCKET_1/upload?key=${encodeURIComponent(base64ObjectKey)}&httpMetadata=${encodeURIComponent(badHttpMetadata)}`,
+				"POST",
+				blobBody,
+				{ "Content-Type": "application/octet-stream" },
+			);
+
+			const response = await app.fetch(request, env, createExecutionContext());
+			expect(response.status).toBe(400);
+			const body = await response.text();
+			expect(body).toContain("Invalid httpMetadata");
 		});
 
 		it("POST /api/buckets/NON_EXISTENT_BUCKET/upload - should return 500 if bucket binding does not exist", async () => {
@@ -478,7 +537,9 @@ describe.skip("Bucket Endpoints", () => {
 			const response = await app.fetch(request, env, createExecutionContext());
 			expect(response.status).toBe(500);
 			const bodyText = await response.text(); // Workaround for non-JSON response
-			expect(bodyText).toContain("Bucket binding not found: NON_EXISTENT_BUCKET");
+			expect(bodyText).toContain(
+				"Bucket binding not found: NON_EXISTENT_BUCKET",
+			);
 		});
 	});
 
@@ -489,7 +550,10 @@ describe.skip("Bucket Endpoints", () => {
 
 		beforeEach(async () => {
 			// Clear potential folder keys before each test
-			await MY_TEST_BUCKET_1.delete([`${FOLDER_NAME}/`, FOLDER_NAME_WITH_SLASH]);
+			await MY_TEST_BUCKET_1.delete([
+				`${FOLDER_NAME}/`,
+				FOLDER_NAME_WITH_SLASH,
+			]);
 		});
 
 		it("should successfully create a new folder (as a zero-byte object with trailing slash)", async () => {
@@ -565,7 +629,9 @@ describe.skip("Bucket Endpoints", () => {
 			const response = await app.fetch(request, env, createExecutionContext());
 			expect(response.status).toBe(500);
 			const bodyText = await response.text(); // Workaround for non-JSON response
-			expect(bodyText).toContain("Bucket binding not found: NON_EXISTENT_BUCKET");
+			expect(bodyText).toContain(
+				"Bucket binding not found: NON_EXISTENT_BUCKET",
+			);
 		});
 	});
 });

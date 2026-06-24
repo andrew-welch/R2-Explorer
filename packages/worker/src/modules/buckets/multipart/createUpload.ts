@@ -1,4 +1,5 @@
 import { OpenAPIRoute } from "chanfana";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { AppContext } from "../../../types";
 
@@ -32,20 +33,43 @@ export class CreateUpload extends OpenAPIRoute {
 
 		const bucket = c.env[data.params.bucket];
 
+		if (
+			!bucket ||
+			typeof bucket !== "object" ||
+			!("createMultipartUpload" in bucket)
+		) {
+			return Response.json(
+				{ error: `Bucket binding not found: ${data.params.bucket}` },
+				{ status: 500 },
+			);
+		}
+
 		const key = decodeURIComponent(escape(atob(data.query.key)));
 
 		let customMetadata = undefined;
 		if (data.query.customMetadata) {
-			customMetadata = JSON.parse(
-				decodeURIComponent(escape(atob(data.query.customMetadata))),
-			);
+			try {
+				customMetadata = JSON.parse(
+					decodeURIComponent(escape(atob(data.query.customMetadata))),
+				);
+			} catch {
+				throw new HTTPException(400, {
+					message: "Invalid customMetadata: expected base64-encoded JSON",
+				});
+			}
 		}
 
 		let httpMetadata = undefined;
 		if (data.query.httpMetadata) {
-			httpMetadata = JSON.parse(
-				decodeURIComponent(escape(atob(data.query.httpMetadata))),
-			);
+			try {
+				httpMetadata = JSON.parse(
+					decodeURIComponent(escape(atob(data.query.httpMetadata))),
+				);
+			} catch {
+				throw new HTTPException(400, {
+					message: "Invalid httpMetadata: expected base64-encoded JSON",
+				});
+			}
 		}
 
 		return await bucket.createMultipartUpload(key, {
